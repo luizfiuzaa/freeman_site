@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Freeman é uma CLI escrita em Go que automatiza a limpeza completa de caches, locks e artefatos do Flutter — flutter clean, pub cache, build dirs — em um único comando configurável.",
   keywords: ["flutter", "cli", "go", "build", "clean", "pub cache", "dart"],
-  authors: [{ name: "luizfiuzaa", url: "https://github.com/luizfiuzaa" }],
+  authors: [{ name: "luizfiuzaa", url: "https://github.com/luizfiuzaa" }, {name: "sousa-p", url:"https://github.com/sousa-p"}],
   openGraph: {
     title: "Freeman — Flutter Build Cleaner",
     description:
