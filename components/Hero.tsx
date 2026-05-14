@@ -1,12 +1,11 @@
-import { RepoStats, Release } from "@/lib/github";
+import { Release } from "@/lib/github";
 import InstallBlock from "./InstallBlock";
 
 interface HeroProps {
-  stats: RepoStats | null;
   release: Release | null;
 }
 
-export default function Hero({ stats, release }: HeroProps) {
+export default function Hero({ release }: HeroProps) {
   return (
     <section className="wrap hero" style={{ paddingTop: "28px" }}>
       {/* Left column */}
@@ -36,41 +35,6 @@ export default function Hero({ stats, release }: HeroProps) {
         </p>
 
         <InstallBlock release={release} />
-
-        {stats && (
-          <div className="hero-stats">
-            <div className="stat">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2l2.93 6.91L22 9.97l-5.5 4.86L18.18 22 12 18.27 5.82 22 7.5 14.83 2 9.97l7.07-1.06L12 2z" />
-              </svg>
-              <span className="stat-val">
-                {new Intl.NumberFormat("pt-BR").format(stats.stargazers_count)}
-              </span>
-              <span className="stat-lbl">stars</span>
-            </div>
-            <div className="stat">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="6" cy="6" r="2.5" />
-                <circle cx="18" cy="6" r="2.5" />
-                <circle cx="12" cy="18" r="2.5" />
-                <path d="M6 8.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.5" />
-                <path d="M12 14v1.5" />
-              </svg>
-              <span className="stat-val">
-                {new Intl.NumberFormat("pt-BR").format(stats.forks_count)}
-              </span>
-              <span className="stat-lbl">forks</span>
-            </div>
-          </div>
-        )}
 
         <div className="cta-row">
           <a className="btn primary" href="#como-funciona">

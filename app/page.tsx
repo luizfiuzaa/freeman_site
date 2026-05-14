@@ -18,7 +18,7 @@ export default async function Page() {
       <div className="bg-fx" aria-hidden="true" />
       <Nav />
       <main>
-        <Hero stats={stats} release={release} />
+        <Hero release={release} />
         <HowItWorks />
         <Features />
         <GithubStats stats={stats} release={release} />
