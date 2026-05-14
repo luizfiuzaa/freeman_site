@@ -104,7 +104,7 @@ export default function Hero({ stats, release }: HeroProps) {
       {/* Right column — mascot */}
       <div className="hero-mascot" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/gopher_freeman.png" alt="Mascote do Freeman" />
+        <img src="/assets/gopher_and_dash.png" alt="Mascote do Freeman" />
       </div>
     </section>
   );
