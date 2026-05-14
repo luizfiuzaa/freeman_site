@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Freeman — Limpa caches e artefatos do Flutter num só comando</title>
+<meta name="description" content="Freeman é uma CLI escrita em Go que automatiza a limpeza completa de caches, locks e artefatos do Flutter — flutter clean, pub cache, build dirs — em um único comando configurável." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:        oklch(0.17 0.012 240);
+  --bg-2:      oklch(0.21 0.013 240);
+  --surface:   oklch(0.235 0.013 240);
+  --surface-2: oklch(0.27 0.014 240);
+  --border:    oklch(0.32 0.012 240);
+  --border-strong: oklch(0.42 0.014 240);
+  --fg:        oklch(0.96 0.006 240);
+  --fg-2:      oklch(0.78 0.01 240);
+  --muted:     oklch(0.62 0.012 240);
+  --cyan:      oklch(0.82 0.13 210);
+  --cyan-deep: oklch(0.65 0.15 215);
+  --orange:    oklch(0.74 0.16 55);
+  --orange-deep: oklch(0.62 0.18 50);
+  --good:      oklch(0.78 0.14 155);
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --maxw: 1120px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+
+/* --- background grid + glow ----------------------------------------- */
+.bg-fx {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, oklch(0.4 0.12 210 / 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, oklch(0.55 0.15 55 / 0.10), transparent 60%);
+}
+.bg-fx::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, oklch(0.5 0.02 240 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.5 0.02 240 / 0.06) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 40%, transparent 80%);
+}
+
+main, header, footer { position: relative; z-index: 1; }
+
+/* --- container ------------------------------------------------------ */
+.wrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+/* --- nav ------------------------------------------------------------ */
+.nav {
+  padding: 22px 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px;
+}
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  font-weight: 700; letter-spacing: -0.01em;
+  font-size: 17px;
+}
+.brand .mark {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-deep) 100%);
+  display: grid; place-items: center;
+  color: var(--bg); font-weight: 800; font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  box-shadow: 0 4px 14px oklch(0.65 0.15 215 / 0.35);
+}
+.nav-links { display: flex; gap: 6px; align-items: center; }
+.nav-links a {
+  padding: 8px 14px; border-radius: 8px;
+  color: var(--fg-2); font-size: 14.5px; font-weight: 500;
+  transition: color .15s, background .15s;
+}
+.nav-links a:hover { color: var(--fg); background: oklch(1 0 0 / 0.04); }
+.nav-cta {
+  padding: 9px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.nav-cta:hover { border-color: var(--cyan); background: var(--surface-2); }
+.nav-cta:active { transform: translateY(1px); }
+.nav-cta svg { width: 16px; height: 16px; }
+
+@media (max-width: 720px) {
+  .nav-links a:not(.nav-cta) { display: none; }
+}
+
+/* --- hero ----------------------------------------------------------- */
+.hero {
+  padding: 56px 0 96px;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 64px;
+  align-items: center;
+}
+@media (max-width: 920px) {
+  .hero { grid-template-columns: 1fr; gap: 36px; padding: 32px 0 64px; }
+  .hero-mascot { order: -1; max-width: 280px; margin: 0 auto; }
+}
+
+.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 500; letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  background: oklch(1 0 0 / 0.02);
+  color: var(--fg-2);
+}
+.badge .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan); box-shadow: 0 0 0 0 currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+.badge.flutter .dot { background: oklch(0.72 0.16 280); }
+.badge.version { font-family: 'JetBrains Mono', monospace; color: var(--cyan); border-color: oklch(0.5 0.1 210 / 0.5); }
+.badge.version .dot { display: none; }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.82 0.13 210 / 0.5); }
+  50%      { box-shadow: 0 0 0 6px oklch(0.82 0.13 210 / 0); }
+}
+
+h1.title {
+  font-size: clamp(56px, 9vw, 96px);
+  font-weight: 700; line-height: 0.95; letter-spacing: -0.035em;
+  margin: 0 0 22px;
+  background: linear-gradient(180deg, var(--fg) 0%, oklch(0.78 0.05 210) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+h1.title .accent {
+  background: linear-gradient(110deg, var(--orange) 0%, var(--orange-deep) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+  font-size: clamp(17px, 1.6vw, 19px);
+  color: var(--fg-2); max-width: 540px;
+  margin: 0 0 32px;
+}
+.tagline strong { color: var(--fg); font-weight: 600; }
+
+.hero-stats {
+  display: flex; gap: 28px; margin: 0 0 32px;
+  padding: 16px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: oklch(1 0 0 / 0.015);
+  width: fit-content;
+}
+.hero-stats .stat { display: flex; align-items: center; gap: 10px; }
+.hero-stats .stat-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600; font-size: 18px; color: var(--fg);
+  min-width: 2ch;
+}
+.hero-stats .stat-lbl { color: var(--muted); font-size: 13px; }
+.hero-stats svg { width: 16px; height: 16px; color: var(--cyan); }
+
+/* install block */
+.install {
+  margin: 0 0 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  overflow: hidden;
+}
+.install-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: oklch(1 0 0 / 0.02);
+  font-size: 12px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.install-head .dots { display: flex; gap: 6px; }
+.install-head .dots span {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong);
+}
+.install-cmd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14.5px;
+  gap: 14px;
+}
+.install-cmd .cmd { color: var(--fg); white-space: nowrap; overflow-x: auto; }
+.install-cmd .cmd::-webkit-scrollbar { display: none; }
+.install-cmd .cmd .prompt { color: var(--cyan); user-select: none; margin-right: 10px; }
+.install-cmd .cmd .kw { color: var(--orange); }
+.copy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  border-radius: 7px; font-size: 12.5px; font-weight: 500;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.copy-btn:hover { color: var(--fg); border-color: var(--cyan); }
+.copy-btn.copied { color: var(--good); border-color: var(--good); }
+.copy-btn svg { width: 13px; height: 13px; }
+
+.install-foot {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+}
+.install-foot a {
+  color: var(--fg-2); border-bottom: 1px dashed var(--border-strong);
+  padding-bottom: 1px;
+}
+.install-foot a:hover { color: var(--cyan); border-color: var(--cyan); }
+
+/* primary CTA */
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 14.5px; font-weight: 600;
+  border: 1px solid transparent;
+  transition: transform .1s, background .15s, border-color .15s, box-shadow .15s;
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary {
+  background: linear-gradient(180deg, var(--cyan) 0%, var(--cyan-deep) 100%);
+  color: oklch(0.18 0.02 240);
+  box-shadow: 0 8px 22px oklch(0.6 0.15 215 / 0.3), inset 0 1px 0 oklch(1 0 0 / 0.3);
+}
+.btn.primary:hover { box-shadow: 0 10px 28px oklch(0.6 0.15 215 / 0.45), inset 0 1px 0 oklch(1 0 0 / 0.3); }
+.btn.ghost {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+.btn.ghost:hover { border-color: var(--fg-2); background: var(--surface-2); }
+.btn svg { width: 16px; height: 16px; }
+
+/* --- hero mascot ---------------------------------------------------- */
+.hero-mascot {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  display: grid; place-items: center;
+}
+.hero-mascot::before {
+  content: ""; position: absolute; inset: 8%;
+  background: radial-gradient(circle, oklch(0.65 0.15 215 / 0.28), transparent 65%);
+  filter: blur(20px);
+  z-index: 0;
+}
+.hero-mascot img {
+  position: relative; z-index: 1;
+  width: 88%; height: 88%; object-fit: contain;
+  filter: drop-shadow(0 30px 40px oklch(0.1 0.01 240 / 0.6));
+  animation: float 6s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+.hero-mascot .ring {
+  position: absolute; inset: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+.hero-mascot .ring.r2 { inset: 8%; border-style: dashed; opacity: 0.4; animation: spin 60s linear infinite; }
+.hero-mascot .ring.r3 { inset: 18%; opacity: 0.25; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- section header ------------------------------------------------- */
+section { padding: 88px 0; }
+@media (max-width: 720px) { section { padding: 56px 0; } }
+
+.sec-head { margin-bottom: 44px; max-width: 720px; }
+.sec-kicker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; font-weight: 500;
+  color: var(--cyan);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin-bottom: 14px;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.sec-kicker::before {
+  content: ""; width: 22px; height: 1px; background: var(--cyan);
+}
+.sec-title {
+  font-size: clamp(32px, 4.4vw, 46px); font-weight: 700;
+  line-height: 1.05; letter-spacing: -0.025em;
+  margin: 0 0 14px;
+}
+.sec-sub { color: var(--fg-2); font-size: 17px; margin: 0; max-width: 620px; }
+
+/* --- how it works --------------------------------------------------- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  counter-reset: step;
+}
+@media (max-width: 880px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .steps { grid-template-columns: 1fr; } }
+
+.step {
+  position: relative;
+  padding: 24px 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  transition: border-color .2s, transform .2s;
+}
+.step:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.step-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--muted);
+  margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.step-num .opt {
+  font-size: 10.5px; padding: 3px 8px; border-radius: 4px;
+  background: oklch(0.45 0.12 55 / 0.18); color: var(--orange);
+  border: 1px solid oklch(0.45 0.12 55 / 0.4);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.step-title {
+  font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.step-cmd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; color: var(--cyan);
+  background: oklch(0.5 0.08 210 / 0.08);
+  border: 1px solid oklch(0.5 0.08 210 / 0.18);
+  padding: 6px 10px; border-radius: 6px;
+  margin: 0 0 14px;
+  display: inline-block;
+}
+.step-desc { color: var(--fg-2); font-size: 14px; margin: 0; }
+
+/* --- flags ---------------------------------------------------------- */
+.flags {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (max-width: 700px) { .flags { grid-template-columns: 1fr; } }
+
+.flag {
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 22px;
+  row-gap: 8px;
+  align-items: start;
+  transition: border-color .2s;
+}
+.flag:hover { border-color: var(--border-strong); }
+.flag-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px; font-weight: 600;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+.flag-alias {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--muted);
+  grid-column: 1; margin-top: -2px;
+}
+.flag-desc {
+  grid-column: 2; grid-row: 1 / span 2;
+  color: var(--fg-2); font-size: 14.5px; margin: 0;
+  line-height: 1.5;
+}
+
+.fvm-note {
+  margin-top: 22px;
+  padding: 16px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  display: flex; gap: 14px; align-items: center;
+  background: oklch(1 0 0 / 0.015);
+}
+.fvm-note .ico {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: oklch(0.5 0.16 280 / 0.2);
+  border: 1px solid oklch(0.5 0.16 280 / 0.4);
+  color: oklch(0.78 0.16 280);
+  display: grid; place-items: center;
+  font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px;
+  flex-shrink: 0;
+}
+.fvm-note p { margin: 0; color: var(--fg-2); font-size: 14.5px; }
+.fvm-note strong { color: var(--fg); }
+
+/* --- github stats --------------------------------------------------- */
+.gh-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+@media (max-width: 880px) { .gh-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.gh-stat {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+}
+.gh-stat .ico {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: oklch(0.5 0.1 210 / 0.18);
+  color: var(--cyan);
+  display: grid; place-items: center;
+  margin-bottom: 18px;
+}
+.gh-stat .ico svg { width: 16px; height: 16px; }
+.gh-stat .val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 30px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--fg);
+  line-height: 1; margin-bottom: 6px;
+}
+.gh-stat .lbl { color: var(--muted); font-size: 13.5px; }
+
+.gh-release {
+  padding: 24px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+}
+.gh-release .left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.gh-release .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 600;
+  color: var(--cyan);
+  padding: 6px 12px;
+  background: oklch(0.5 0.1 210 / 0.12);
+  border: 1px solid oklch(0.5 0.1 210 / 0.3);
+  border-radius: 7px;
+}
+.gh-release .meta { color: var(--fg-2); font-size: 14.5px; }
+.gh-release .meta .date { color: var(--muted); font-size: 13px; margin-top: 2px; display: block; }
+.gh-release a.view {
+  font-size: 14px; font-weight: 500;
+  color: var(--fg-2);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  transition: border-color .15s, color .15s;
+}
+.gh-release a.view:hover { color: var(--cyan); border-color: var(--cyan); }
+.gh-release a.view svg { width: 14px; height: 14px; }
+
+/* --- footer --------------------------------------------------------- */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 36px 0 48px;
+  margin-top: 40px;
+}
+.foot-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+}
+.foot-row .left {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  font-size: 14px; color: var(--muted);
+}
+.foot-row .left .freeman { color: var(--cyan); font-weight: 600; }
+.foot-row .left .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border-strong); }
+.foot-links { display: flex; gap: 4px; }
+.foot-links a {
+  padding: 8px 12px; border-radius: 7px;
+  color: var(--fg-2); font-size: 14px;
+  transition: color .15s, background .15s;
+}
+.foot-links a:hover { color: var(--cyan); background: oklch(1 0 0 / 0.04); }
+
+/* --- skeleton ------------------------------------------------------- */
+.skel {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 4px;
+  color: transparent !important;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.fade-up { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
+.fade-up.in { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<div class="bg-fx" aria-hidden="true"></div>
+
+<header class="wrap nav">
+  <a href="#" class="brand">
+    <span class="mark">F</span>
+    <span>freeman</span>
+  </a>
+  <nav class="nav-links">
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#flags">Flags</a>
+    <a href="#open-source">Open source</a>
+    <a class="nav-cta" href="https://github.com/luizfiuzaa/freeman" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.69-3.88-1.36-3.88-1.36-.52-1.33-1.27-1.68-1.27-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 2.9-.39c.98 0 1.97.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.12 3.06.73.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.41.36.78 1.05.78 2.13v3.15c0 .31.21.66.8.55C20.22 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5Z"/></svg>
+      GitHub
+    </a>
+  </nav>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="wrap hero" style="padding-top: 28px;">
+  <div>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>Go CLI</span>
+      <span class="badge flutter"><span class="dot"></span>Flutter</span>
+      <span class="badge version" id="hero-version"><span class="skel">v0.0.0</span></span>
+    </div>
+
+    <h1 class="title">Free<span class="accent">man</span></h1>
+
+    <p class="tagline">
+      Uma CLI escrita em <strong>Go</strong> que limpa, repara e reconstrói o ambiente Flutter
+      em <strong>um único comando</strong> — sem rituais, sem caches travados, sem build quebrado.
+    </p>
+
+    <div class="install">
+      <div class="install-head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span>~/projects</span>
+      </div>
+      <div class="install-cmd">
+        <div class="cmd" id="install-cmd"><span class="prompt">$</span><span class="kw">go install</span> github.com/luizfiuzaa/freeman@latest</div>
+        <button class="copy-btn" id="copy-install" aria-label="Copiar comando de instalação">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="lbl">Copiar</span>
+        </button>
+      </div>
+      <div class="install-foot">
+        <span>Funciona em macOS, Linux e Windows — binário único, sem runtime.</span>
+        <a id="prebuilt-link" href="https://github.com/luizfiuzaa/freeman/releases/latest" target="_blank" rel="noopener">
+          ↓ baixar binário pré-compilado
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-stats" id="hero-stats">
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.93 6.91L22 9.97l-5.5 4.86L18.18 22 12 18.27 5.82 22 7.5 14.83 2 9.97l7.07-1.06L12 2z"/></svg>
+        <span class="stat-val" id="stat-stars"><span class="skel">000</span></span>
+        <span class="stat-lbl">stars</span>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.5"/><path d="M12 14v1.5"/></svg>
+        <span class="stat-val" id="stat-forks"><span class="skel">00</span></span>
+        <span class="stat-lbl">forks</span>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn primary" href="#como-funciona">
+        Ver o que ele faz
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </a>
+      <a class="btn ghost" href="https://github.com/luizfiuzaa/freeman" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.69-3.88-1.36-3.88-1.36-.52-1.33-1.27-1.68-1.27-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 2.9-.39c.98 0 1.97.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.12 3.06.73.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.41.36.78 1.05.78 2.13v3.15c0 .31.21.66.8.55C20.22 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5Z"/></svg>
+        Ver no GitHub
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-mascot" aria-hidden="true">
+    <div class="ring"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <img src="assets/gopher_freeman.png" alt="Mascote do Freeman" />
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="como-funciona" class="wrap">
+  <div class="sec-head fade-up">
+    <div class="sec-kicker">// como funciona</div>
+    <h2 class="sec-title">Seis passos. Um comando.</h2>
+    <p class="sec-sub">
+      O Freeman orquestra os comandos do Flutter CLI numa ordem segura — você não precisa
+      lembrar deles, nem da ordem, nem das pastas que precisam sumir.
+    </p>
+  </div>
+
+  <div class="steps">
+    <article class="step fade-up">
+      <div class="step-num"><span>01</span><span class="opt">opcional</span></div>
+      <h3 class="step-title">Remove o pub cache local</h3>
+      <code class="step-cmd">pub cache clean</code>
+      <p class="step-desc">Apaga o cache de pacotes Dart na sua máquina. Útil quando algum pacote ficou corrompido.</p>
+    </article>
+
+    <article class="step fade-up">
+      <div class="step-num"><span>02</span></div>
+      <h3 class="step-title">Flutter clean</h3>
+      <code class="step-cmd">flutter clean</code>
+      <p class="step-desc">Remove a pasta <code>build/</code> e demais artefatos gerados pelo último build.</p>
+    </article>
+
+    <article class="step fade-up">
+      <div class="step-num"><span>03</span></div>
+      <h3 class="step-title">Pub cache repair</h3>
+      <code class="step-cmd">pub cache repair</code>
+      <p class="step-desc">Reinstala todos os pacotes em cache, restaurando integridade dos hashes.</p>
+    </article>
+
+    <article class="step fade-up">
+      <div class="step-num"><span>04</span></div>
+      <h3 class="step-title">Pub cache clean</h3>
+      <code class="step-cmd">pub cache clean</code>
+      <p class="step-desc">Limpa o cache do pub para forçar resolução fresca das dependências.</p>
+    </article>
+
+    <article class="step fade-up">
+      <div class="step-num"><span>05</span></div>
+      <h3 class="step-title">Remove artefatos gerados</h3>
+      <code class="step-cmd">rm build/ .dart_tool/ *.g.dart</code>
+      <p class="step-desc">Deleta diretórios e arquivos gerados pelo Flutter, Gradle e IDEs.</p>
+    </article>
+
+    <article class="step fade-up">
+      <div class="step-num"><span>06</span></div>
+      <h3 class="step-title">Reinstala as dependências</h3>
+      <code class="step-cmd">flutter pub get</code>
+      <p class="step-desc">Resolve e baixa as dependências do <code>pubspec.yaml</code> do zero.</p>
+    </article>
+  </div>
+</section>
+
+<!-- FLAGS -->
+<section id="flags" class="wrap">
+  <div class="sec-head fade-up">
+    <div class="sec-kicker">// flags</div>
+    <h2 class="sec-title">Configurável até onde precisar.</h2>
+    <p class="sec-sub">
+      Cada etapa pode ser pulada, simulada ou restrita. Os defaults são seguros — as flags
+      te dão controle fino sem precisar editar nada.
+    </p>
+  </div>
+
+  <div class="flags">
+    <div class="flag fade-up">
+      <div>
+        <div class="flag-name">--dry-run</div>
+        <div class="flag-alias">alias: -n</div>
+      </div>
+      <p class="flag-desc">Simula a execução completa imprimindo cada comando que seria rodado, sem tocar em nada.</p>
+    </div>
+
+    <div class="flag fade-up">
+      <div>
+        <div class="flag-name">--safe</div>
+        <div class="flag-alias">alias: -s</div>
+      </div>
+      <p class="flag-desc">Executa só <code>flutter clean</code> + <code>flutter pub get</code> — limpeza rápida sem mexer em caches globais.</p>
+    </div>
+
+    <div class="flag fade-up">
+      <div>
+        <div class="flag-name">--skip-pub-cache</div>
+        <div class="flag-alias">&nbsp;</div>
+      </div>
+      <p class="flag-desc">Pula as etapas de limpeza e reparo do pub cache local da máquina.</p>
+    </div>
+
+    <div class="flag fade-up">
+      <div>
+        <div class="flag-name">--keep-lock</div>
+        <div class="flag-alias">&nbsp;</div>
+      </div>
+      <p class="flag-desc">Preserva o <code>pubspec.lock</code> durante o processo, mantendo as versões resolvidas.</p>
+    </div>
+  </div>
+
+  <div class="fvm-note fade-up">
+    <div class="ico">fvm</div>
+    <p><strong>Suporte automático a FVM.</strong> Se o Flutter Version Manager estiver presente no projeto, o Freeman detecta e usa <code>fvm flutter</code> nos comandos — ou force via flag.</p>
+  </div>
+</section>
+
+<!-- OPEN SOURCE -->
+<section id="open-source" class="wrap">
+  <div class="sec-head fade-up">
+    <div class="sec-kicker">// open source</div>
+    <h2 class="sec-title">Construído à vista de todos.</h2>
+    <p class="sec-sub">
+      Código aberto sob licença MIT, sem dependências externas além da biblioteca padrão do Go.
+    </p>
+  </div>
+
+  <div class="gh-grid">
+    <div class="gh-stat fade-up">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.93 6.91L22 9.97l-5.5 4.86L18.18 22 12 18.27 5.82 22 7.5 14.83 2 9.97l7.07-1.06L12 2z"/></svg></div>
+      <div class="val" id="gh-stars"><span class="skel">000</span></div>
+      <div class="lbl">Stars</div>
+    </div>
+    <div class="gh-stat fade-up">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.5"/><path d="M12 14v1.5"/></svg></div>
+      <div class="val" id="gh-forks"><span class="skel">00</span></div>
+      <div class="lbl">Forks</div>
+    </div>
+    <div class="gh-stat fade-up">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="13"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></div>
+      <div class="val" id="gh-issues"><span class="skel">00</span></div>
+      <div class="lbl">Issues abertas</div>
+    </div>
+    <div class="gh-stat fade-up">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <div class="val mono" id="gh-lang"><span class="skel">Goooo</span></div>
+      <div class="lbl">Linguagem principal</div>
+    </div>
+  </div>
+
+  <div class="gh-release fade-up" id="release-card">
+    <div class="left">
+      <span class="tag" id="rel-tag"><span class="skel">v0.0.0</span></span>
+      <div class="meta">
+        <span>Última release publicada</span>
+        <span class="date" id="rel-date"><span class="skel">00 de XXX de 0000</span></span>
+      </div>
+    </div>
+    <a class="view" id="rel-link" href="https://github.com/luizfiuzaa/freeman/releases/latest" target="_blank" rel="noopener">
+      Ver no GitHub
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+    </a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot-row">
+    <div class="left">
+      <span class="freeman">freeman</span>
+      <span class="sep"></span>
+      <span>MIT License</span>
+      <span class="sep"></span>
+      <span>feito com Go</span>
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/luizfiuzaa/freeman" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/luizfiuzaa/freeman/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/luizfiuzaa/freeman/issues" target="_blank" rel="noopener">Issues</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* --------- copy-to-clipboard ------------------------------ */
+const installCmdText = "go install github.com/luizfiuzaa/freeman@latest";
+const copyBtn = document.getElementById("copy-install");
+const copyLbl = copyBtn.querySelector(".lbl");
+copyBtn.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(installCmdText);
+  } catch {
+    // fallback
+    const ta = document.createElement("textarea");
+    ta.value = installCmdText; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  copyBtn.classList.add("copied");
+  copyLbl.textContent = "Copiado!";
+  copyBtn.querySelector("svg").innerHTML =
+    '<polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  setTimeout(() => {
+    copyBtn.classList.remove("copied");
+    copyLbl.textContent = "Copiar";
+    copyBtn.querySelector("svg").innerHTML =
+      '<rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  }, 2000);
+});
+
+/* --------- intersection observer fade-in ----------------- */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add("in");
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12 });
+document.querySelectorAll(".fade-up").forEach(el => io.observe(el));
+
+/* --------- GitHub API live stats ------------------------- */
+const fmtNum = (n) => new Intl.NumberFormat("pt-BR").format(n);
+const fmtDate = (iso) => {
+  try {
+    return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(iso));
+  } catch { return ""; }
+};
+
+const setText = (id, text) => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+};
+
+async function loadGitHub() {
+  const repo = "luizfiuzaa/freeman";
+  try {
+    const [repoRes, relRes] = await Promise.allSettled([
+      fetch(`https://api.github.com/repos/${repo}`),
+      fetch(`https://api.github.com/repos/${repo}/releases/latest`),
+    ]);
+
+    if (repoRes.status === "fulfilled" && repoRes.value.ok) {
+      const d = await repoRes.value.json();
+      setText("stat-stars", fmtNum(d.stargazers_count));
+      setText("stat-forks", fmtNum(d.forks_count));
+      setText("gh-stars", fmtNum(d.stargazers_count));
+      setText("gh-forks", fmtNum(d.forks_count));
+      setText("gh-issues", fmtNum(d.open_issues_count));
+      setText("gh-lang", d.language || "Go");
+    } else {
+      // fallback values — don't break the page
+      setText("stat-stars", "—");
+      setText("stat-forks", "—");
+      setText("gh-stars", "—");
+      setText("gh-forks", "—");
+      setText("gh-issues", "—");
+      setText("gh-lang", "Go");
+    }
+
+    if (relRes.status === "fulfilled" && relRes.value.ok) {
+      const r = await relRes.value.json();
+      setText("hero-version", r.tag_name);
+      setText("rel-tag", r.tag_name);
+      setText("rel-date", `publicado em ${fmtDate(r.published_at)}`);
+      const link = document.getElementById("rel-link");
+      const preLink = document.getElementById("prebuilt-link");
+      if (r.html_url) {
+        link.href = r.html_url;
+        preLink.href = r.html_url;
+        preLink.textContent = `↓ baixar binário pré-compilado (${r.tag_name})`;
+      }
+    } else {
+      setText("hero-version", "latest");
+      setText("rel-tag", "latest");
+      setText("rel-date", "—");
+    }
+  } catch (e) {
+    setText("stat-stars", "—"); setText("stat-forks", "—");
+    setText("gh-stars", "—"); setText("gh-forks", "—");
+    setText("gh-issues", "—"); setText("gh-lang", "Go");
+    setText("hero-version", "latest"); setText("rel-tag", "latest"); setText("rel-date", "—");
+  }
+}
+
+loadGitHub();
+</script>
+
+</body>
+</html>

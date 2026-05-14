@@ -1,0 +1,26 @@
+export default function Nav() {
+  return (
+    <header className="wrap nav">
+      <a href="#" className="brand">
+        <span className="mark">F</span>
+        <span>freeman</span>
+      </a>
+      <nav className="nav-links">
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#flags">Flags</a>
+        <a href="#open-source">Open source</a>
+        <a
+          className="nav-cta"
+          href="https://github.com/luizfiuzaa/freeman"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.69-3.88-1.36-3.88-1.36-.52-1.33-1.27-1.68-1.27-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 2.9-.39c.98 0 1.97.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.12 3.06.73.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.41.36.78 1.05.78 2.13v3.15c0 .31.21.66.8.55C20.22 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5Z" />
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </header>
+  );
+}
