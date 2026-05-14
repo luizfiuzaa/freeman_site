@@ -25,7 +25,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 html { scroll-behavior: smooth; }
 
 body {
@@ -102,19 +102,25 @@ main, header, footer { position: relative; z-index: 1; }
 
 @media (max-width: 720px) {
   .nav-links a:not(.nav-cta) { display: none; }
-  .install-cmd { font-size: 12.5px; padding: 14px; gap: 10px; }
+}
+
+@media (max-width: 520px) {
+  .install-cmd { font-size: 12.5px; padding: 14px; gap: 10px; align-items: flex-start; }
+  .install-cmd .cmd { white-space: normal; }
+  .install-cmd .cmd .pkg { display: block; padding-left: 1.8ch; word-break: break-all; }
+  .install-cmd .cmd .pkg::before { content: "\\ "; color: var(--muted); margin-left: -1.8ch; }
 }
 
 /* hero */
 .hero {
   padding: 56px 0 96px;
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 64px; align-items: center;
 }
 @media (max-width: 920px) {
-  .hero { grid-template-columns: 1fr; gap: 36px; padding: 32px 0 64px; }
-  .hero-mascot { order: -1; max-width: 280px; margin: 0 auto; justify-self: center; width: 100%; }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 36px; padding: 32px 0 64px; }
+  .hero-mascot { order: -1; width: min(280px, 100%); margin: 0 auto; justify-self: center; }
 }
 
 /* badges */
@@ -185,7 +191,7 @@ h1.title .accent {
   margin: 0 0 22px;
   border: 1px solid var(--border); border-radius: var(--radius);
   background: linear-gradient(180deg, var(--surface), var(--bg-2));
-  overflow: hidden;
+  overflow: hidden; width: 100%; min-width: 0;
 }
 .install-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -198,21 +204,22 @@ h1.title .accent {
 .install-cmd {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; gap: 14px;
+  width: 100%; background: none; border: none; text-align: left;
+  cursor: pointer; transition: background .15s;
 }
+.install-cmd:hover { background: oklch(1 0 0 / 0.03); }
+.install-cmd.copied { background: oklch(0.78 0.14 155 / 0.06); }
 .install-cmd .cmd { color: var(--fg); white-space: nowrap; overflow-x: auto; min-width: 0; }
 .install-cmd .cmd::-webkit-scrollbar { display: none; }
 .install-cmd .cmd .prompt { color: var(--cyan); user-select: none; margin-right: 10px; }
 .install-cmd .cmd .kw { color: var(--orange); }
-.copy-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 11px; border: 1px solid var(--border-strong);
-  background: var(--surface-2); color: var(--fg-2);
-  border-radius: 7px; font-size: 12.5px; font-weight: 500;
-  transition: all .15s; flex-shrink: 0;
+.copy-hint {
+  color: var(--muted); flex-shrink: 0;
+  transition: color .15s;
 }
-.copy-btn:hover { color: var(--fg); border-color: var(--cyan); }
-.copy-btn.copied { color: var(--good); border-color: var(--good); }
-.copy-btn svg { width: 13px; height: 13px; }
+.install-cmd:hover .copy-hint { color: var(--fg-2); }
+.install-cmd.copied .copy-hint { color: var(--good); }
+.copy-hint svg { width: 14px; height: 14px; display: block; }
 .install-foot {
   padding: 10px 18px; border-top: 1px solid var(--border);
   font-size: 13px; color: var(--muted);
@@ -272,15 +279,6 @@ h1.title .accent {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-12px); }
 }
-.hero-mascot .ring {
-  position: absolute; inset: 0;
-  border: 1px solid var(--border); border-radius: 50%; opacity: 0.7;
-}
-.hero-mascot .ring.r2 {
-  inset: 8%; border-style: dashed; opacity: 0.4;
-  animation: spin 60s linear infinite;
-}
-.hero-mascot .ring.r3 { inset: 18%; opacity: 0.25; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* section header */
@@ -304,11 +302,11 @@ section { padding: 88px 0; }
 
 /* steps */
 .steps {
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px; counter-reset: step;
 }
-@media (max-width: 880px) { .steps { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .steps { grid-template-columns: 1fr; } }
+@media (max-width: 880px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } }
 
 .step {
   position: relative; padding: 24px 22px 22px;
@@ -335,25 +333,26 @@ section { padding: 88px 0; }
   background: oklch(0.5 0.08 210 / 0.08);
   border: 1px solid oklch(0.5 0.08 210 / 0.18);
   padding: 6px 10px; border-radius: 6px;
-  margin: 0 0 14px; display: inline-block;
+  margin: 0 0 14px; display: block;
+  white-space: nowrap; overflow-x: auto; max-width: 100%;
 }
 .step-desc { color: var(--fg-2); font-size: 14px; margin: 0; }
 
 /* flags */
-.flags { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (max-width: 700px) { .flags { grid-template-columns: 1fr; } }
+.flags { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 700px) { .flags { grid-template-columns: minmax(0, 1fr); } }
 
 .flag {
   padding: 22px 24px; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--surface);
-  display: grid; grid-template-columns: auto 1fr;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
   column-gap: 22px; row-gap: 8px; align-items: start;
   transition: border-color .2s;
 }
 .flag:hover { border-color: var(--border-strong); }
 .flag-name {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 15px; font-weight: 600; color: var(--cyan); white-space: nowrap;
+  font-size: 15px; font-weight: 600; color: var(--cyan);
 }
 .flag-alias {
   font-family: 'JetBrains Mono', monospace;
@@ -384,10 +383,10 @@ section { padding: 88px 0; }
 
 /* github stats */
 .gh-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px; margin-bottom: 28px;
 }
-@media (max-width: 880px) { .gh-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 880px) { .gh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .gh-stat {
   padding: 24px; border: 1px solid var(--border); border-radius: var(--radius);

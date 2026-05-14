@@ -103,10 +103,6 @@ export default function Hero({ stats, release }: HeroProps) {
 
       {/* Right column — mascot */}
       <div className="hero-mascot" aria-hidden="true">
-        <div className="ring" />
-        <div className="ring r2" />
-        <div className="ring r3" />
-        {/* Place gopher_freeman.png at public/assets/gopher_freeman.png */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assets/gopher_freeman.png" alt="Mascote do Freeman" />
       </div>

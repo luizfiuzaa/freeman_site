@@ -8,6 +8,7 @@ export default function InstallBlock({ release }: { release: Release | null }) {
   const cmd = "go install github.com/luizfiuzaa/freeman@latest";
 
   const handleCopy = async () => {
+    if (copied) return;
     try {
       await navigator.clipboard.writeText(cmd);
     } catch {
@@ -36,20 +37,20 @@ export default function InstallBlock({ release }: { release: Release | null }) {
           <span />
           <span />
         </div>
-        <span>~/projects</span>
       </div>
 
-      <div className="install-cmd">
+      <button
+        className={`install-cmd${copied ? " copied" : ""}`}
+        onClick={handleCopy}
+        aria-label="Copiar comando de instalação"
+        title="Clique para copiar"
+      >
         <div className="cmd">
           <span className="prompt">$</span>
           <span className="kw">go install</span>
-          {" github.com/luizfiuzaa/freeman@latest"}
+          <span className="pkg"> github.com/luizfiuzaa/freeman@latest</span>
         </div>
-        <button
-          className={`copy-btn${copied ? " copied" : ""}`}
-          onClick={handleCopy}
-          aria-label="Copiar comando de instalação"
-        >
+        <span className="copy-hint">
           {copied ? (
             <svg
               viewBox="0 0 24 24"
@@ -74,9 +75,8 @@ export default function InstallBlock({ release }: { release: Release | null }) {
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
           )}
-          <span>{copied ? "Copiado!" : "Copiar"}</span>
-        </button>
-      </div>
+        </span>
+      </button>
 
       <div className="install-foot">
         <span>Funciona em macOS, Linux e Windows — binário único, sem runtime.</span>
