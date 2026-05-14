@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Freeman — Limpa caches e artefatos do Flutter num só comando",
+  title: "Freeman — Flutter Cache Cleaner",
   description:
     "Freeman é uma CLI escrita em Go que automatiza a limpeza completa de caches, locks e artefatos do Flutter — flutter clean, pub cache, build dirs — em um único comando configurável.",
   keywords: ["flutter", "cli", "go", "build", "clean", "pub cache", "dart"],
